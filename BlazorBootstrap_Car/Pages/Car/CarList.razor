@@ -1,0 +1,209 @@
+﻿@page "/car"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+@inject NavigationManager NavigationManager
+
+<PageTitle>Car</PageTitle>
+
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <h3>Car List</h3>
+    <a href="/car/create" class="btn btn-primary rounded-5"><Icon Name="IconName.PlusCircleDotted" /> Add New Car</a>
+</div>
+
+<Grid TItem="Car"
+      Class="table table-bordered align-middle text-center"
+      DataProvider="CarDataProvider"
+      AllowFiltering="false"
+      AllowPaging="true"
+      PageSize="5"
+      AllowSorting="true"
+      AllowSelection="false"
+      Responsive="true"
+      ItemsPerPageText="5"
+      PageSizeSelectorItems="new int[] { 5, 10, 20 }"
+      PaginationItemsTextFormat="{0} - {1} of {2} items">
+
+    <GridColumn TItem="Car" HeaderText="Id" PropertyName="Id" SortKeySelector="item => item.Id" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center h-100  align-middle">
+        @context.Id
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Car" HeaderText="Car Name" PropertyName="Name" SortKeySelector="item => item.Name" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center h-100  align-middle">
+            @if(context.Image != "")
+            {
+                <img src="@context.Image" class="me-3" style="max-width: 120px" />
+            } else
+            {
+                <img src="uploads/noimg.png" class="me-3 rounded-3" style="max-width: 120px" />
+            }
+            @context.Name
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Car" HeaderText="Quantity" PropertyName="Quantity" SortKeySelector="item => item.Quantity" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center h-100  align-middle">
+            @context.Quantity
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Car" HeaderText="Price" PropertyName="Price" SortKeySelector="item => item.Price" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center h-100 text-success  align-middle">
+            $@context.Price
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Car" HeaderText="Brand" PropertyName="BrandId" SortKeySelector="item => item.BrandId" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center h-100  align-middle">
+            @{
+                try
+                {
+                    string SqlGetBrand = String.Format($"SELECT * FROM brands WHERE id = {context.BrandId}");
+                    MySqlConnection conn1 = DBMySQL.GetMySqlConnection();
+                    MySqlCommand cmd1 = conn1.CreateCommand();
+                    conn1.Open();
+                    cmd1.CommandText = SqlGetBrand;
+                    MySqlDataReader mySqlDataReader1 = cmd1.ExecuteReader();
+                    while (mySqlDataReader1.Read())
+                    {
+                        BId = mySqlDataReader1.GetInt32("id");
+                        BName = mySqlDataReader1.GetString("name");
+                    }
+                    conn1.Close();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            }
+            @if (BName != "" && BName != null && context.BrandId != 0)
+            {
+                @BName
+            }
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Car" HeaderText="Is Deleted" PropertyName="IsDeleted" SortKeySelector="item => item.IsDeleted" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center h-100  align-middle">
+            @if (context.IsDeleted == 0)
+            {
+                <div class="badge bg-success rounded-5">
+                    <Icon Name="IconName.CheckCircle" /> No
+                </div>
+            }
+            else
+            {
+                <div class="badge bg-danger rounded-5">
+                    <Icon Name="IconName.XCircle" /> Deleted
+                </div>
+            }
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Car" HeaderText="Action" Class="align-middle text-center">
+        <div class="d-flex justify-content-evenly align-items-center">
+            <Button Type="ButtonType.Link" Color="ButtonColor.Info" To=@($"/car/show/{@context.Id}") Class="rounded-5">
+                <Icon Name="IconName.Eye" /> View
+            </Button>
+            <Button Type="ButtonType.Link" Color="ButtonColor.Warning" To=@($"/car/edit/{@context.Id}") Class="rounded-5">
+                <Icon Name="IconName.PencilSquare" /> Edit
+            </Button>
+            @if(context.IsDeleted == 0)
+            {
+                <button class="btn btn-danger rounded-5" @onclick="() => DeleteCar(context.Id)"><Icon Name="IconName.Trash3" /> Delete</button>
+
+            } else {
+            <button class="btn btn-danger rounded-5 disabled" disabled><Icon Name="IconName.Trash3" /> Delete</button>
+            }
+        </div>
+    </GridColumn>
+</Grid>
+
+@code {
+    private int BId;
+    private string BName;
+
+    private IEnumerable<Car> cars = default!;
+
+    private HashSet<Car> selectedCars = new();
+
+    private async Task<GridDataProviderResult<Car>> CarDataProvider(GridDataProviderRequest<Car> request)
+    {
+        if (cars is null) // pull employees only one time for client-side filtering, sorting, and paging
+            cars = GetCars(); // call a service or an API to pull the employees
+
+        return await Task.FromResult(request.ApplyTo(cars));
+    }
+
+    private IEnumerable<Car> GetCars()
+    {
+        List<Car> list = new List<Car>();
+
+        try
+        {
+            string SqlGetCars = String.Format("SELECT * FROM cars");
+            MySqlConnection conn = DBMySQL.GetMySqlConnection();
+            MySqlCommand cmd = conn.CreateCommand();
+            conn.Open();
+            cmd.CommandText = SqlGetCars;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            while(mySqlDataReader.Read())
+            {
+                int Id = mySqlDataReader.GetInt32("id");
+                string Name = mySqlDataReader.GetString("name");
+                int Quantity = mySqlDataReader.GetInt32("quantity");
+                float Price = mySqlDataReader.GetFloat("price");
+                int BrandId = mySqlDataReader.GetInt32("brand_id");
+                string Image = mySqlDataReader.GetString("image");
+                int IsDeleted = mySqlDataReader.GetInt32("is_deleted");
+                Car b = new Car(Id, Name, Quantity, Price, BrandId, Image, IsDeleted);
+                list.Add(b);
+            }
+            conn.Close();
+        } catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+        return list;
+    }
+
+    private Task OnSelectedItemsChanged(HashSet<Car> cars)
+    {
+        selectedCars = cars is not null && cars.Any() ? cars : new();
+        return Task.CompletedTask;
+    }
+
+    private void DeleteCar(int Id)
+    {
+        var conn = DBMySQL.GetMySqlConnection();
+        try
+        {
+            // find
+            conn.Open();
+
+            string sqlGetCar = $"SELECT * FROM cars WHERE id = {Id}";
+            MySqlCommand cmd = conn.CreateCommand();
+            cmd.CommandText = sqlGetCar;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            if (mySqlDataReader.Read())
+            {
+                // delete
+                var conn2 = DBMySQL.GetMySqlConnection();
+                try
+                {
+                    conn2.Open();
+                    string SqlDelete = $"UPDATE cars SET is_deleted = 1 WHERE id = {Id}";
+                    MySqlCommand cmd2 = new MySqlCommand(SqlDelete, conn2);
+                    cmd2.ExecuteNonQuery();
+                    conn2.Close();
+                } catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            } 
+
+            conn.Close();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        NavigationManager.NavigateTo("/car", forceLoad: true);
+    }
+}

@@ -1,0 +1,144 @@
+﻿@page "/car/show/{Id:int}"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+@using BlazorBootstrap
+
+<h3 class="mb-3">Car Details: @car.Name</h3>
+
+<EditForm Model="car">
+    <div class="row mb-3">
+       <div class="col-4">
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <div>Id: @car.Id</div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <div>Name: @car.Name</div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <div>Quantity: @car.Quantity</div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <div>Price: <span class="text-success">$@car.Price</span></div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <div>Brand: @brand.Name</div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    @if (car.IsDeleted == 0)
+                    {
+                        <label for="IsDeleted" class="form-label">Is deleted: No</label>
+                    }
+                    else
+                    {
+                        <label for="IsDeleted" class="form-label">Is deleted: Deleted</label>
+                    }
+                </div>
+            </div>
+       </div>
+
+        <div class="col-8">
+            @if (car.Image != "")
+            {
+                <div>
+                    <img src="@car.Image" class="" style="max-width: 500px" />
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="d-flex">
+                <a href="/car" class="btn btn-secondary me-3 rounded-5"><Icon Name="IconName.ArrowLeftCircle" /> Back</a>
+
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    [Inject]
+    private NavigationManager? NavigationManager { get; set; }
+    Car car = new Car();
+    Brand brand = new Brand();
+    protected override void OnParametersSet()
+    {
+        if (Id != 0)
+        {
+            car = GetCar(Id);
+            GetBrand();
+        }
+    }
+
+    public Car GetCar(int Id)
+    {
+        var conn = DBMySQL.GetMySqlConnection();
+        try
+        {
+            conn.Open();
+            string sqlGetCar = $"SELECT * FROM cars WHERE id = {Id}";
+            MySqlCommand cmd = conn.CreateCommand();
+            cmd.CommandText = sqlGetCar;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            if(mySqlDataReader.Read())
+            {
+                car.Id = mySqlDataReader.GetInt32("id");
+                car.Name = mySqlDataReader.GetString("name");
+                car.Quantity = mySqlDataReader.GetInt32("quantity");
+                car.Price = mySqlDataReader.GetFloat("price");
+                car.BrandId = mySqlDataReader.GetInt32("brand_id");
+                car.Image = mySqlDataReader.GetString("image");
+                car.IsDeleted = mySqlDataReader.GetInt32("is_deleted");
+            }
+
+            conn.Close();
+        } catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        return car;
+    }
+
+    public void GetBrand()
+    {
+        var conn = DBMySQL.GetMySqlConnection();
+        try
+        {
+            conn.Open();
+            string sqlGetBrand = $"SELECT * FROM brands WHERE id = {car.BrandId}";
+            MySqlCommand cmd = conn.CreateCommand();
+            cmd.CommandText = sqlGetBrand;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            if (mySqlDataReader.Read())
+            {
+                brand.Id = mySqlDataReader.GetInt32("id");
+                brand.Name = mySqlDataReader.GetString("name");
+                brand.IsDeleted = mySqlDataReader.GetInt32("is_deleted");
+            }
+
+            conn.Close();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+    }
+}

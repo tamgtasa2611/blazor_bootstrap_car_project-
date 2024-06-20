@@ -1,0 +1,163 @@
+﻿@page "/"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+
+<PageTitle>Blazor Bootstrap - Home</PageTitle>
+
+<h1 class="text-center mb-4 text-warning">
+    Cheap car for everyone 😜
+</h1>
+
+<div class="mb-4 text-center text-danger">
+    C# - ASP.NET 7 - Blazor Server App
+</div>
+
+<div class="row">
+    <div class="col-6">
+        <div>
+            <div class="text-center">
+                <h4 class="text-info">Car left in stock</h4>
+            </div>
+            <Grid TItem="CarQuantity"
+      Class="table table-bordered table-striped align-middle text-center"
+      DataProvider="CarQuantityDataProvider"
+      AllowFiltering="false"
+      AllowPaging="true"
+      PageSize="5"
+      AllowSorting="true"
+      AllowSelection="false"
+      Responsive="true"
+      ItemsPerPageText="5"
+      PageSizeSelectorItems="new int[] { 5, 10, 20 }"
+      PaginationItemsTextFormat="{0} - {1} of {2} items">
+
+    <GridColumn TItem="CarQuantity" HeaderText="Car name" PropertyName="Name" SortKeySelector="item => item.Name" Class="align-middle text-center">
+         <div class="d-flex justify-content-center align-items-center">
+        @context.Name
+        </div>
+    </GridColumn>
+    <GridColumn TItem="CarQuantity" HeaderText="Left in stock" PropertyName="Quantity" SortKeySelector="item => item.Quantity" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center text-danger">
+        @context.Quantity
+        </div>
+    </GridColumn>
+</Grid>
+        </div>
+    </div>
+
+    <div class="col-6">
+        <div>
+            <div class="text-center">
+                <h4 class="text-success">Car quantity by Brand</h4>
+            </div>
+            <Grid TItem="BrandQuantity"
+                  Class="table table-bordered table-striped align-middle text-center"
+                  DataProvider="BrandQuantityDataProvider"
+                  AllowFiltering="false"
+                  AllowPaging="true"
+                  PageSize="5"
+                  AllowSorting="true"
+                  AllowSelection="false"
+                  Responsive="true"
+                  ItemsPerPageText="5"
+                  PageSizeSelectorItems="new int[] { 5, 10, 20 }"
+                  PaginationItemsTextFormat="{0} - {1} of {2} items">
+
+                <GridColumn TItem="BrandQuantity" HeaderText="Brand name" PropertyName="Name" SortKeySelector="item => item.Name" Class="align-middle text-center">
+                    <div class="d-flex justify-content-center align-items-center">
+                        @context.Name
+                    </div>
+                </GridColumn>
+                <GridColumn TItem="BrandQuantity" HeaderText="Total cars quantity" PropertyName="Quantity" SortKeySelector="item => item.Quantity" Class="align-middle text-center">
+                    <div class="d-flex justify-content-center align-items-center">
+                        @context.Quantity
+                    </div>
+                </GridColumn>
+            </Grid>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<CarQuantity> CarList = default!;
+    private IEnumerable<BrandQuantity> BrandList = default!;
+
+    protected IEnumerable<CarQuantity> GetCarQuantity()
+    {
+        List<CarQuantity> list = new List<CarQuantity>();
+        try
+        {
+            string SqlGetCars = String.Format("SELECT name, quantity FROM cars WHERE quantity <= 5 ORDER BY quantity ASC");
+            MySqlConnection conn = DBMySQL.GetMySqlConnection();
+            MySqlCommand cmd = conn.CreateCommand();
+            conn.Open();
+            cmd.CommandText = SqlGetCars;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            while(mySqlDataReader.Read())
+            {
+                string Name = mySqlDataReader.GetString("name");
+                int Quantity = mySqlDataReader.GetInt32("quantity");
+                CarQuantity carQuantity = new CarQuantity(Name, Quantity);
+                list.Add(carQuantity);
+            }
+            conn.Close();
+        } catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+        return list;
+    }
+
+    protected IEnumerable<BrandQuantity> GetBrandQuantity()
+    {
+        List<BrandQuantity> list = new List<BrandQuantity>();
+        try
+        {
+            string SqlGetBrands = String.Format("SELECT brands.name as bname, sum(quantity) as squantity FROM cars INNER JOIN brands ON cars.brand_id = brands.id GROUP BY brands.id ORDER BY squantity DESC");
+            MySqlConnection conn = DBMySQL.GetMySqlConnection();
+            MySqlCommand cmd = conn.CreateCommand();
+            conn.Open();
+            cmd.CommandText = SqlGetBrands;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            while (mySqlDataReader.Read())
+            {
+                string Name = mySqlDataReader.GetString("bname");
+                int Quantity = mySqlDataReader.GetInt32("squantity");
+                BrandQuantity brandQuantity = new BrandQuantity(Name, Quantity);
+                list.Add(brandQuantity);
+            }
+            conn.Close();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+        return list;
+    }
+
+    protected override void OnInitialized()
+    {
+        CarList = GetCarQuantity();
+        BrandList = GetBrandQuantity();
+    }
+
+    private async Task<GridDataProviderResult<CarQuantity>> CarQuantityDataProvider(GridDataProviderRequest<CarQuantity> request)
+    {
+        if (CarList is null) // pull employees only one time for client-side filtering, sorting, and paging
+            CarList = GetCarQuantity(); // call a service or an API to pull the employees
+
+        return await Task.FromResult(request.ApplyTo(CarList));
+    }
+
+    private async Task<GridDataProviderResult<BrandQuantity>> BrandQuantityDataProvider(GridDataProviderRequest<BrandQuantity> request)
+    {
+        if (BrandList is null) // pull employees only one time for client-side filtering, sorting, and paging
+            BrandList = GetBrandQuantity(); // call a service or an API to pull the employees
+
+        return await Task.FromResult(request.ApplyTo(BrandList));
+    }
+}
+
+

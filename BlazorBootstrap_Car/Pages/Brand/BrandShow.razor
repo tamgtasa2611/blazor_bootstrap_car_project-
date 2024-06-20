@@ -1,0 +1,81 @@
+﻿@page "/brand/show/{Id:int}"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+@using BlazorBootstrap
+
+<h3 class="mb-3">Brand Details: @brand.Name</h3>
+
+<EditForm Model="brand">
+    <div class="form-group row mb-3">
+        <div class="col-md-10">
+            <label for="Id" class="form-label">Id: @brand.Id</label>
+        </div>
+    </div>
+
+    <div class="form-group row mb-3">
+        <div class="col-md-10">
+            <label for="Name" class="form-label">Name: @brand.Name</label>
+        </div>
+    </div>
+
+    <div class="form-group row mb-3">
+        <div class="col-md-10">
+            @if (brand.IsDeleted == 0) 
+            {
+                <label for="IsDeleted" class="form-label">Is deleted: No</label>
+            }
+            else { 
+                <label for="IsDeleted" class="form-label">Is deleted: Deleted</label>
+            }
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="d-flex">
+                <a href="/brand" class="btn btn-secondary me-3 rounded-5"><Icon Name="IconName.ArrowLeftCircle" /> Back</a>
+
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    [Inject]
+    private NavigationManager? NavigationManager { get; set; }
+    Brand brand = new Brand();
+    protected override void OnParametersSet()
+    {
+        if (Id != 0)
+        {
+            brand = GetBrand(Id);
+        }
+    }
+
+    public Brand GetBrand(int Id)
+    {
+        var conn = DBMySQL.GetMySqlConnection();
+        try
+        {
+            conn.Open();
+            string sqlGetBrand = $"SELECT * FROM brands WHERE id = {Id}";
+            MySqlCommand cmd = conn.CreateCommand();
+            cmd.CommandText = sqlGetBrand;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            if(mySqlDataReader.Read())
+            {
+                brand.Id = mySqlDataReader.GetInt32("id");
+                brand.Name = mySqlDataReader.GetString("name");
+                brand.IsDeleted = mySqlDataReader.GetInt32("is_deleted");
+            }
+
+            conn.Close();
+        } catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        return brand;
+    }
+}

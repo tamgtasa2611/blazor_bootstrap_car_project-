@@ -1,0 +1,185 @@
+﻿@page "/car/create"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+@using BlazorBootstrap
+@inject NavigationManager NavigationManager
+
+<h3 class="mb-3">Create new Car</h3>
+
+<EditForm Model="car" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <div class="row g-3">
+        <div class="col-6">
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <label for="Name" class="form-label">Car Name</label>
+                    <InputText @bind-Value=car.Name class="form-control" />
+                    <div class="text-danger">
+                        <ValidationMessage For="() => car.Name" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <label for="Quantity" class="form-label">Quantity</label>
+                    <InputNumber @bind-Value=car.Quantity class="form-control" />
+                    <div class="text-danger">
+                        <ValidationMessage For="() => car.Quantity" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <label for="Price" class="form-label">Price</label>
+                    <InputNumber @bind-Value=car.Price class="form-control" />
+                    <div class="text-danger">
+                        <ValidationMessage For="() => car.Price" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <label for="Brand" class="form-label">Brand</label>
+                    <InputSelect @bind-Value=car.BrandId class="form-select" id="SelectBrand">
+                        <option value="0" selected>-- Choose a brand --</option>
+                        @foreach (var bra in brands)
+                        {
+                            <option value="@bra.Id">@bra.Name</option>
+                        }
+                    </InputSelect>
+                    <div class="text-danger">
+                        <ValidationMessage For="() => car.BrandId" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <label for="IsDeleted" class="form-label">Is deleted</label>
+                    <InputSelect @bind-Value=car.IsDeleted class="form-select" id="SelectIsDeleted">
+                        <option value="0">No</option>
+                        <option value="1">Deleted</option>
+                    </InputSelect>
+                    <div class="text-danger">
+                        <ValidationMessage For="() => car.IsDeleted" />
+                    </div>
+                </div>
+            </div>
+            <div class="form-group row mb-3">
+                <div class="col-md-10">
+                    <label for="Image" class="form-label">Image</label>
+                    <InputFile OnChange="HandleFileSelected" @bind-Value=car.Image class="form-control" />
+                    @if(ImageDataUrl != null)
+                    {
+                        <img src="@ImageDataUrl" class="mt-3" style="max-width: 500px"/>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+           <div class="d-flex">
+                <a href="/car" class="btn btn-secondary me-3 rounded-5"><Icon Name="IconName.ArrowLeftCircle" /> Back</a>
+                <button type="submit" class="btn btn-primary rounded-5"><Icon Name="IconName.Save" /> Save</button>
+           </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    Car car = new Car();
+    private string ImageDataUrl = "";
+    private IBrowserFile selectedFile;
+
+    private IEnumerable<Brand> brands = default!;
+    private IEnumerable<Brand> GetBrands()
+    {
+        List<Brand> list = new List<Brand>();
+
+        try
+        {
+            string SqlGetBrands = String.Format("SELECT * FROM brands");
+            MySqlConnection conn = DBMySQL.GetMySqlConnection();
+            MySqlCommand cmd = conn.CreateCommand();
+            conn.Open();
+            cmd.CommandText = SqlGetBrands;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            while (mySqlDataReader.Read())
+            {
+                int Id = mySqlDataReader.GetInt32("id");
+                string Name = mySqlDataReader.GetString("name");
+                int IsDeleted = mySqlDataReader.GetInt32("is_deleted");
+                Brand b = new Brand(Id, Name, IsDeleted);
+                list.Add(b);
+            }
+            conn.Close();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+        return list;
+    }
+
+    protected override void OnInitialized()
+    {
+        brands = GetBrands();
+    }
+
+    protected async void HandleValidSubmit()
+    {
+        try
+        {
+            await SaveImageToServer(selectedFile);
+            string Name = car.Name;
+            int Quantity = car.Quantity;
+            float Price = car.Price;
+            int BrandId = car.BrandId;
+      
+            string Image = car.Image;
+            int IsDeleted = car.IsDeleted;
+            string SqlInsert = $"INSERT INTO cars(name, quantity, price, brand_id, image, is_deleted) VALUES('{Name}',{Quantity}, {Price}, {BrandId}, '{Image}' , {IsDeleted} )";
+            MySqlConnection conn = DBMySQL.GetMySqlConnection();
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(SqlInsert, conn);
+            cmd.ExecuteNonQuery();
+            conn.Close();
+            NavigationManager.NavigateTo("/car", forceLoad: true);
+        } catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        var resizeFile = await e.File.RequestImageFileAsync("image/jpeg", 500, 500);
+        var buffer = new byte[resizeFile.Size];
+        await resizeFile.OpenReadStream().ReadAsync(buffer);
+        ImageDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(buffer)}";
+    }
+
+    private async Task SaveImageToServer(IBrowserFile file)
+    {
+        if(file != null)
+        {
+            var FileName = file.Name;
+		var folderPath = Path.Combine("wwwroot", "uploads"); //wwwroot/uploads
+		var filePath = Path.Combine(folderPath, FileName); //wwwroot/uploads/...
+		Directory.CreateDirectory(folderPath);
+		using(var fileStream = new FileStream(filePath, FileMode.Create))
+		{
+			await file.OpenReadStream().CopyToAsync(fileStream);
+		}
+		car.Image = $"uploads/{FileName}";
+        }
+    }
+}

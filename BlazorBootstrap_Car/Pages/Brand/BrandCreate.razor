@@ -1,0 +1,58 @@
+﻿@page "/brand/create"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+@using BlazorBootstrap
+@inject NavigationManager NavigationManager
+
+<h3 class="mb-3">Create new Brand</h3>
+
+<EditForm Model="brand" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <div class="form-group row mb-3">
+        <div class="col-md-10">
+            <label for="Name" class="form-label">Name</label>
+            <InputText @bind-Value=brand.Name class="form-control"/>
+            <div class="text-danger">
+                <ValidationMessage For="() => brand.Name" />
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group row mb-3">
+        <div class="col-md-10">
+            <label for="IsDeleted" class="form-label">Is deleted</label>
+            <InputSelect @bind-Value=brand.IsDeleted class="form-select" id="SelectIsDeleted">
+                <option value="0">No</option>
+                <option value="1">Deleted</option>
+            </InputSelect>
+            <div class="text-danger">
+                <ValidationMessage For="() => brand.IsDeleted" />
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+           <div class="d-flex">
+                <a href="/brand" class="btn btn-secondary me-3 rounded-5"><Icon Name="IconName.ArrowLeftCircle" /> Back</a>
+                <button type="submit" class="btn btn-primary rounded-5"><Icon Name="IconName.Save" /> Save</button>
+           </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    Brand brand = new Brand();
+    protected void HandleValidSubmit()
+    {
+        string Name = brand.Name;
+        int IsDeleted = brand.IsDeleted;
+        string SqlInsert = $"INSERT INTO brands(name, is_deleted) VALUES('{Name}', {IsDeleted} )";
+        MySqlConnection conn = DBMySQL.GetMySqlConnection();
+        conn.Open();
+        MySqlCommand cmd = new MySqlCommand(SqlInsert, conn);
+        cmd.ExecuteNonQuery();
+        conn.Close();
+        NavigationManager.NavigateTo("/brand", forceLoad: true);
+    }
+}

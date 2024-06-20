@@ -1,0 +1,158 @@
+﻿@page "/brand"
+@using BlazorBootstrap_Car.Data
+@using MySql.Data.MySqlClient;
+@inject NavigationManager NavigationManager
+
+<PageTitle>Brand</PageTitle>
+
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <h3>Brand List</h3>
+    <a href="/brand/create" class="btn btn-primary rounded-5"><Icon Name="IconName.PlusCircleDotted" /> Add New Brand</a>
+</div>
+
+<Grid TItem="Brand"
+      Class="table table-bordered table-striped align-middle text-center"
+      DataProvider="BrandDataProvider"
+      AllowFiltering="false"
+      AllowPaging="true"
+      PageSize="5"
+      AllowSorting="true"
+      AllowSelection="false"
+      Responsive="true"
+      ItemsPerPageText="5"
+      PageSizeSelectorItems="new int[] { 5, 10, 20 }"
+      PaginationItemsTextFormat="{0} - {1} of {2} items">
+
+    <GridColumn TItem="Brand" HeaderText="Id" PropertyName="Id" SortKeySelector="item => item.Id" Class="align-middle text-center">
+         <div class="d-flex justify-content-center align-items-center">
+        @context.Id
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Brand" HeaderText="Brand Name" PropertyName="Name" SortKeySelector="item => item.Name" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center">
+        @context.Name
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Brand" HeaderText="Is Deleted" PropertyName="IsDeleted" SortKeySelector="item => item.IsDeleted" Class="align-middle text-center">
+        <div class="d-flex justify-content-center align-items-center">
+            @if (context.IsDeleted == 0)
+            {
+                <div class="badge bg-success rounded-5">
+                    <Icon Name="IconName.CheckCircle" /> No
+                </div>
+            }
+            else
+            {
+                <div class="badge bg-danger rounded-5">
+                    <Icon Name="IconName.XCircle" /> Deleted
+                </div>
+            }
+        </div>
+    </GridColumn>
+    <GridColumn TItem="Brand" HeaderText="Action" Class="align-middle text-center">
+        <div class="d-flex justify-content-evenly align-items-center">
+            <Button Type="ButtonType.Link" Color="ButtonColor.Info" To=@($"/brand/show/{@context.Id}") Class="rounded-5">
+                <Icon Name="IconName.Eye" /> View
+            </Button>
+            <Button Type="ButtonType.Link" Color="ButtonColor.Warning" To=@($"/brand/edit/{@context.Id}") Class="rounded-5">
+                <Icon Name="IconName.PencilSquare" /> Edit
+            </Button>
+            @if(context.IsDeleted == 0)
+            {
+                <button class="btn btn-danger rounded-5" @onclick="() => DeleteBrand(context.Id)"><Icon Name="IconName.Trash3" /> Delete</button>
+
+            } else
+            {
+                <button class="btn btn-danger rounded-5 disabled" disabled><Icon Name="IconName.Trash3" /> Delete</button>
+
+            }
+        </div>
+    </GridColumn>
+</Grid>
+
+@code {
+    private IEnumerable<Brand> brands = default!;
+
+    private HashSet<Brand> selectedBrands = new();
+
+    private async Task<GridDataProviderResult<Brand>> BrandDataProvider(GridDataProviderRequest<Brand> request)
+    {
+        if (brands is null) // pull employees only one time for client-side filtering, sorting, and paging
+            brands = GetBrands(); // call a service or an API to pull the employees
+
+        return await Task.FromResult(request.ApplyTo(brands));
+    }
+
+    private IEnumerable<Brand> GetBrands()
+    {
+        List<Brand> list = new List<Brand>();
+
+        try
+        {
+            string SqlGetBrands = String.Format("SELECT * FROM brands");
+            MySqlConnection conn = DBMySQL.GetMySqlConnection();
+            MySqlCommand cmd = conn.CreateCommand();
+            conn.Open();
+            cmd.CommandText = SqlGetBrands;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            while(mySqlDataReader.Read())
+            {
+                int Id = mySqlDataReader.GetInt32("id");
+                string Name = mySqlDataReader.GetString("name");
+                int IsDeleted = mySqlDataReader.GetInt32("is_deleted");
+                Brand b = new Brand(Id, Name, IsDeleted);
+                list.Add(b);
+            }
+            conn.Close();
+        } catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+        return list;
+    }
+
+    private Task OnSelectedItemsChanged(HashSet<Brand> brands)
+    {
+        selectedBrands = brands is not null && brands.Any() ? brands : new();
+        return Task.CompletedTask;
+    }
+
+    private void DeleteBrand(int Id)
+    {
+        var conn = DBMySQL.GetMySqlConnection();
+        try
+        {
+            // find
+            conn.Open();
+
+            string sqlGetBrand = $"SELECT * FROM brands WHERE id = {Id}";
+            MySqlCommand cmd = conn.CreateCommand();
+            cmd.CommandText = sqlGetBrand;
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            if (mySqlDataReader.Read())
+            {
+                // delete
+                var conn2 = DBMySQL.GetMySqlConnection();
+                try
+                {
+                    conn2.Open();
+                    string SqlDelete = $"UPDATE brands SET is_deleted = 1 WHERE id = {Id}";
+                    MySqlCommand cmd2 = new MySqlCommand(SqlDelete, conn2);
+                    cmd2.ExecuteNonQuery();
+                    conn2.Close();
+                } catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            } 
+
+            conn.Close();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        NavigationManager.NavigateTo("/brand", forceLoad: true);
+    }
+}
